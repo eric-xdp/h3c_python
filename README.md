@@ -3,3 +3,7 @@
 ### pycrypto,paramiko
 ### SSH
 ### python 3.8
+### pyodbc
+### apscheduler
+### threading
+### configparser
