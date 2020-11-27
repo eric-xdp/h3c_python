@@ -17,11 +17,12 @@ import mythreading
 
 class H3cToPython():
 
-    def __init__(self, ip, port, user, pwd):
+    def __init__(self, ip, port, user, pwd, switch_name):
         self.ip = ip
         self.port = port
         self.user = user
         self.pwd = pwd
+        self.switch = switch_name
         self.conn = paramiko.Transport((self.ip, self.port))
         self.conn.connect(username=self.user, password=self.pwd)
         self.ssh = paramiko.SSHClient()
@@ -61,16 +62,27 @@ class H3cToPython():
     def get_port_ip(self):
         stdin, stdout, stderr = self.ssh.exec_command('dis arp', get_pty=True)
         out = str(stdout.read()).split('<H3C>')[1].replace(r'\t', '').split(r'\r\r\n')
-        for o in out:
-            print(o)
+        ip_list = []
+        detail = [self.switch]
+        for i in range(3, len(out)):
+            for d in out[i].split(' '):
+                if '.' in d:
+                    detail.append(d)
+                if '-' in d:
+                    detail.append(d)
+                if 'GE1/' in d:
+                    detail.append(d)
+                    ip_list.append(tuple(detail))
+            detail = [self.switch]
+        return ip_list
 
 
-def insert_sql(info):
+def insert_sql(info, sql):
     data = []
     for i in info:
         data += i
-    sql = 'INSERT INTO [h3cPort] (h3cIp, portName, status, updateTime) VALUES (?, ?, ?, ?)'
     odb.ExecuteMany(sql, data)
+
 
 
 def get_switch(switch_name):
@@ -81,17 +93,21 @@ def get_switch(switch_name):
     info = odb.ExecQuery(sql)
     if info is not None: return info
 
+
 def get_all_switch(section):
-    h3c = H3cToPython(section[0], int(section[1]), section[2], section[3])
+    h3c = H3cToPython(section[0], int(section[1]), section[2], section[3], section[4])
     return h3c.get_all_port()
 
+
 def get_up_port_ip(section):
-    h3c = H3cToPython(section[0], int(section[1]), section[2], section[3])
+    h3c = H3cToPython(section[0], int(section[1]), section[2], section[3], section[4])
     return h3c.get_port_ip()
+
 
 def run30min():
     # 当交换机多的时候，多线程执行交换机
     t_list = []
+    sql = 'INSERT INTO [h3cPort] (h3cIp, portName, status, updateTime) VALUES (?, ?, ?, ?)'
     switchs = get_switch('all')
     start = time.time()
     for section in switchs:
@@ -101,10 +117,8 @@ def run30min():
         t_list.append(t.get_result())
 
     print("当前时间：", datetime.datetime.now())
-    insert_sql(t_list)
+    insert_sql(t_list, sql)
     print(time.time() - start)
-
-
 
 
 def process_all_port():
@@ -113,14 +127,21 @@ def process_all_port():
     sched.add_job(run30min, 'interval', seconds=int(conf.get('SQL', 'frequency')))
     sched.start()
 
+
 # 获取指定交换机UP状态端口的所有IP
 def process_get_ip(switch_name):
     info = get_switch(switch_name)
-    print(info)
+    detail_list = []
+    sql = 'INSERT INTO [db_switch_ip] (bySwitch, ipAddress, macAddress, switchInterface) VALUES (?, ?, ?, ?)'
+    start = time.time()
     for sw in info:
         t = mythreading.MyThread(get_up_port_ip, (sw,))
         t.start()
         t.join()
+        detail_list.append(t.get_result())
+    print("当前时间：", datetime.datetime.now())
+    insert_sql(detail_list, sql)
+    print(time.time() - start)
 
 
 if __name__ == "__main__":
@@ -133,12 +154,6 @@ if __name__ == "__main__":
     # 定时执行
     # process_all_port()
     # 获取指定交换机所有UP状态端口的IP。
-    process_get_ip('外网入口2')
+    process_get_ip('外网入口1')
+    # run30min()
 
-    # 2 :
-    # 172.28.1.135    0050-5693-7f47 3             GE1/0/24                 353   D
-    # 172.28.1.150    0050-5693-2f5d 3             GE1/0/24                 1189  D
-    # 172.28.1.164    0050-5693-528c 3             GE1/0/24                 909   D
-    # 172.28.1.219    3cec-ef01-ff68 3             GE1/0/24                 1096  D
-    # 172.28.1.250    0440-a98a-3431 3             GE1/0/24                 352   D
-    # 172.28.1.254    70f9-6de9-812b 3             GE1/0/24                 1189  D
