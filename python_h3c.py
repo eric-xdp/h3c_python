@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @File  : python_h3c.py
 # @Author: shijiu.Xu
-# @Date  : 2020/11/24 
+# @Date  : 2020/11/24
 # @SoftWare  : PyCharm
 # https://blog.csdn.net/q13554515812/article/details/89739517?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-2.control&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-2.control
 
@@ -139,9 +139,9 @@ def run30min():
         t.join()
         t_list.append(t.get_result())
 
-    print("当前时间：", datetime.datetime.now())
+    logging.info("run30min >当前时间： %s" % datetime.datetime.now())
     insert_sql(t_list, sql)
-    print(time.time() - start)
+    logging.info("run30min >耗费时间： %s " % (time.time() - start))
 
 
 def process_all_port():
@@ -162,9 +162,9 @@ def process_get_ip(switch_name):
         t.start()
         t.join()
         detail_list.append(t.get_result())
-    logging.info("当前时间： %s" % datetime.datetime.now())
+    logging.info("insert >当前时间： %s" % datetime.datetime.now())
     insert_sql(detail_list, sql)
-    logging.info( "耗费时间： %s " % time.time() - start)
+    logging.info("insert >耗费时间： %s " % (time.time() - start))
 
 
 if __name__ == "__main__":
